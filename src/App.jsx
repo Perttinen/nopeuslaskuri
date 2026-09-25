@@ -224,13 +224,6 @@ function App() {
                 <strong>Huono:</strong> alle 1.5 km/h
               </li>
             </ul>
-            <Typography
-              variant="body2"
-              sx={{ mt: 2, color: "text.secondary", fontStyle: "italic" }}
-            >
-              * Logiikka pyöristää tuloksen lähimpään kokonaislukuun, ellei
-              saavuteta suoraan kiitettävää rajaa.
-            </Typography>
           </Typography>
         </DialogContent>
         <DialogActions>
