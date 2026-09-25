@@ -62,28 +62,21 @@ function App() {
     const tarkkaKmh = kilometrit / tunnit
 
     let arvosana = ""
-    let naytettavaTulos = ""
 
-    if (tarkkaKmh >= 6) {
-      arvosana = "Kiitettävä"
-      naytettavaTulos = `${tarkkaKmh.toFixed(1)} km/h ${arvosana}`
+    // 1.2 km/h portain jaettu 6-portainen laskentalogiikka
+    if (tarkkaKmh >= 6.0) {
+      arvosana = "KIITETTÄVÄ"
+    } else if (tarkkaKmh >= 4.5) {
+      arvosana = "HYVÄ"
+    } else if (tarkkaKmh >= 3.0) {
+      arvosana = "TYYDYTTÄVÄ"
+    } else if (tarkkaKmh >= 1.5) {
+      arvosana = "VÄLTTÄVÄ"
     } else {
-      const pyoristettyKmh = Math.round(tarkkaKmh)
-
-      if (pyoristettyKmh === 5) {
-        arvosana = "HYVÄ"
-      } else if (pyoristettyKmh === 4) {
-        arvosana = "TYYDYTTÄVÄ"
-      } else if (pyoristettyKmh === 3) {
-        arvosana = "VÄLTTÄVÄ"
-      } else {
-        arvosana = "HUONO"
-      }
-
-      naytettavaTulos = `${tarkkaKmh.toFixed(1)} km/h → ${arvosana}`
+      arvosana = "HUONO"
     }
 
-    setNopeus(naytettavaTulos)
+    setNopeus(`${tarkkaKmh.toFixed(1)} km/h (${arvosana})`)
   }
 
   const tyhjennaLomake = () => {
@@ -137,7 +130,7 @@ function App() {
 
           <Stack spacing={3}>
             <TextField
-              label="Matka (km, esim. 4.5)"
+              label="Matka (km, esim. 1.8)"
               variant="outlined"
               value={matkaKmh}
               onChange={kasitteleDesimaali}
@@ -171,7 +164,7 @@ function App() {
             />
 
             <TextField
-              label="Hakunopeus ja arvosana"
+              label="Hakunopeus ja kuvaus"
               variant="filled"
               value={nopeus}
               slotProps={{ input: { readOnly: true } }}
@@ -211,26 +204,24 @@ function App() {
         fullWidth
         maxWidth="xs"
       >
-        <DialogTitle sx={{ fontWeight: "bold" }}>
-          Hakunopeuden arvostelu
-        </DialogTitle>
+        <DialogTitle sx={{ fontWeight: "bold" }}>Arvostelutaulukko</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body1" component="div">
             <ul style={{ margin: 0, paddingLeft: "20px", lineHeight: "1.8" }}>
               <li>
-                <strong>Kiitettävä:</strong> ≥ 6 km/h (ilman pyöristystä)
+                <strong>Kiitettävä:</strong> vähintään 6.0 km/h
               </li>
               <li>
-                <strong>Hyvä:</strong> pyöristyy arvoon 5 km/h
+                <strong>Hyvä:</strong> vähintään 4.5 km/h
               </li>
               <li>
-                <strong>Tyydyttävä:</strong> pyöristyy arvoon 4 km/h
+                <strong>Tyydyttävä:</strong> vähintään 3.0 km/h
               </li>
               <li>
-                <strong>Välttävä:</strong> pyöristyy arvoon 3 km/h
+                <strong>Välttävä:</strong> vähintään 1.5 km/h
               </li>
               <li>
-                <strong>Huono:</strong> pyöristyy alle 3 km/h
+                <strong>Huono:</strong> alle 1.5 km/h
               </li>
             </ul>
             <Typography
