@@ -66,6 +66,20 @@ function App() {
   const [infoAuki, setInfoAuki] = useState(false)
 
   useEffect(() => {
+    const lukitseVaakatilaan = async () => {
+      try {
+        if (window.screen.orientation && window.screen.orientation.lock) {
+          await window.screen.orientation.lock("landscape")
+        }
+      } catch (error) {
+        console.log("Näytön suunnan lukitus ei onnistunut:", error)
+      }
+    }
+
+    lukitseVaakatilaan()
+  }, [])
+
+  useEffect(() => {
     const tallennettavaData = rivit.map((r) => ({
       ...r,
       alkuAika: r.alkuAika ? r.alkuAika.toISOString() : null,
