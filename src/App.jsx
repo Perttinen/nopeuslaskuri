@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Container,
   TextField,
@@ -15,22 +15,65 @@ import {
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined"
 import { LocalizationProvider, TimePicker } from "@mui/x-date-pickers"
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs"
+import dayjs from "dayjs"
 
 function App() {
-  const [matkaKmh, setMatkaKmh] = useState("")
-  const [alkuAika, setAlkuAika] = useState(null)
-  const [loppuAika, setLoppuAika] = useState(null)
-  const [kulunutAika, setKulunutAika] = useState("")
-  const [nopeus, setNopeus] = useState("")
+  const [matkaKmh, setMatkaKmh] = useState(() => {
+    return localStorage.getItem("hakunopeus_matka") || ""
+  })
+
+  const [alkuAika, setAlkuAika] = useState(() => {
+    const tallennettu = localStorage.getItem("hakunopeus_alku")
+    return tallennettu ? dayjs(tallennettu) : null
+  })
+
+  const [loppuAika, setLoppuAika] = useState(() => {
+    const tallennettu = localStorage.getItem("hakunopeus_loppu")
+    return tallennettu ? dayjs(tallennettu) : null
+  })
+  const [kulunutAika, setKulunutAika] = useState(() => {
+    return localStorage.getItem("hakunopeus_kulunutAika") || ""
+  })
+
+  const [nopeus, setNopeus] = useState(() => {
+    return localStorage.getItem("hakunopeus_nopeus") || ""
+  })
 
   const [infoAuki, setInfoAuki] = useState(false)
 
-  // NYT TÄYSIN KORJATTU REGEX (Sallii pisteen ja max 1 desimaalin)
+  useEffect(() => {
+    localStorage.setItem("hakunopeus_matka", matkaKmh)
+  }, [matkaKmh])
+
+  // Tallennetaan alkuaika localStorageen (muutetaan Day.js merkkijonoksi)
+  useEffect(() => {
+    if (alkuAika) {
+      localStorage.setItem("hakunopeus_alku", alkuAika.toISOString())
+    } else {
+      localStorage.removeItem("hakunopeus_alku")
+    }
+  }, [alkuAika])
+
+  // Tallennetaan loppuaika localStorageen
+  useEffect(() => {
+    if (loppuAika) {
+      localStorage.setItem("hakunopeus_loppu", loppuAika.toISOString())
+    } else {
+      localStorage.removeItem("hakunopeus_loppu")
+    }
+  }, [loppuAika])
+
+  useEffect(() => {
+    localStorage.setItem("hakunopeus_kulunutAika", kulunutAika)
+  }, [kulunutAika])
+
+  useEffect(() => {
+    localStorage.setItem("hakunopeus_nopeus", nopeus)
+  }, [nopeus])
+
   const kasitteleDesimaali = (e) => {
     let arvo = e.target.value
-    arvo = arvo.replace(",", ".") // Muuntaa pilkun pisteeksi automaattisesti
-
-    // ^\d*\.?\d{0,1}\$ takaa, että syöte on tyhjä, kokonaisluku tai tasan yksi desimaali
+    arvo = arvo.replace(",", ".")
     if (arvo === "" || /^\d*\.?\d{0,1}$/.test(arvo)) {
       setMatkaKmh(arvo)
     }
@@ -85,6 +128,11 @@ function App() {
     setLoppuAika(null)
     setKulunutAika("")
     setNopeus("")
+    localStorage.removeItem("hakunopeus_matka")
+    localStorage.removeItem("hakunopeus_alku")
+    localStorage.removeItem("hakunopeus_loppu")
+    localStorage.removeItem("hakunopeus_kulunutAika")
+    localStorage.removeItem("hakunopeus_nopeus")
   }
 
   // Avaa infoikkunan ja poistaa fokuksen painikkeesta varoituksen estämiseksi
