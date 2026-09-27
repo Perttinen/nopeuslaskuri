@@ -75,12 +75,59 @@ function App() {
     localStorage.setItem("hakulenkit_rivit", JSON.stringify(tallennettavaData))
   }, [rivit])
 
+  // Suodatetaan mukaan vain ne rivit, joilla on syötetty pisteet
+  const validitPisteet = rivit
+    .map((r) => parseFloat(r.pisteet))
+    .filter((p) => !isNaN(p))
+
+  // Lasketaan keskiarvo pyöristettynä lähimpään kokonaislukuun
+  const keskiarvo =
+    validitPisteet.length > 0
+      ? Math.round(
+          validitPisteet.reduce((a, b) => a + b, 0) / validitPisteet.length,
+        )
+      : "-" // Jos riveillä ei ole vielä pisteitä
+
+  const laskePisteEhdotus = (km, ulottuvuus, nopeus) => {
+    // Muutetaan syötteet numeroiksi varmuuden vuoksi
+    const k = parseFloat(km)
+    const u = parseFloat(ulottuvuus)
+    const n = parseFloat(nopeus)
+
+    // Jos jokin arvo puuttuu tai ei ole numero, palautetaan tyhjä
+    if (isNaN(k) || isNaN(u) || isNaN(n)) {
+      return ""
+    }
+
+    // Käydään ehdot läpi taulukon mukaisessa järjestyksessä (10 -> 1)
+    if (k >= 2 && u >= 0.8) {
+      return n >= 6 ? 10 : 9
+    }
+    if (k >= 1.5 && u >= 0.6) {
+      return n >= 4.5 ? 8 : 7
+    }
+    if (k >= 1 && u >= 0.4) {
+      return n >= 3 ? 6 : 5
+    }
+    if (k >= 0.5 && u >= 0.3) {
+      return n >= 1.5 ? 4 : 3
+    }
+    if (k < 0.5 && u < 0.3) {
+      return n >= 1.5 ? 2 : 1
+    }
+
+    // Jos arvot sijoittuvat rajatapauksiin (esim. km 0.7 ja ulottuvuus < 0.3), palautetaan oletus
+    return 0
+  }
+
   const paivitaArvo = (index, kentta, arvo) => {
     const uudetRivit = [...rivit]
     const rivi = { ...uudetRivit[index], [kentta]: arvo }
 
+    // 1. Pisteiden manuaalisen syötön tarkistus (0–10)
     if (kentta === "pisteet") {
       if (arvo === "") {
+        // Sallitaan tyhjennys
       } else {
         const num = Number(arvo)
         if (isNaN(num) || num < 0 || num > 10) {
@@ -89,6 +136,7 @@ function App() {
       }
     }
 
+    // 2. Numerosyötteiden ja pilkkujen korjaus
     if (kentta === "matkaKm" || kentta === "ulottuvuusKm") {
       let korjattu = arvo.replace(",", ".")
       if (korjattu !== "" && !/^\d*\.?\d{0,1}$/.test(korjattu)) {
@@ -97,9 +145,12 @@ function App() {
       rivi[kentta] = korjattu
     }
 
+    // 3. Ajan ja nopeuden laskenta
     const alku = kentta === "alkuAika" ? arvo : rivi.alkuAika
     const loppu = kentta === "loppuAika" ? arvo : rivi.loppuAika
     const matka = parseFloat(rivi.matkaKm)
+
+    let tarkkaKmh = null
 
     if (alku && loppu) {
       let minuutit = loppu.diff(alku, "minute")
@@ -108,7 +159,7 @@ function App() {
 
       if (minuutit > 0 && !isNaN(matka)) {
         const tunnit = minuutit / 60
-        const tarkkaKmh = matka / tunnit
+        tarkkaKmh = matka / tunnit
 
         let arvosana = ""
         if (tarkkaKmh >= 6.0) arvosana = "kiitettävä"
@@ -117,13 +168,28 @@ function App() {
         else if (tarkkaKmh >= 1.5) arvosana = "välttävä"
         else arvosana = "huono"
 
-        rivi.nopeus = `${tarkkaKmh.toFixed(1)} ${arvosana}`
+        rivi.nopeus = `${arvosana}`
       } else {
         rivi.nopeus = ""
       }
     } else {
       rivi.aikaMin = ""
       rivi.nopeus = ""
+    }
+
+    // 4. Automaattinen piste-ehdotus
+    // Lasketaan automaattisesti vain kun muutetaan matkaa, ulottuvuutta tai aikoja
+    if (["matkaKm", "ulottuvuusKm", "alkuAika", "loppuAika"].includes(kentta)) {
+      const ehdotetutPisteet = laskePisteEhdotus(
+        rivi.matkaKm,
+        rivi.ulottuvuusKm,
+        tarkkaKmh,
+      )
+
+      // Päivitetään pisteet vain, jos laskenta tuotti tuloksen
+      if (ehdotetutPisteet !== "") {
+        rivi.pisteet = ehdotetutPisteet
+      }
     }
 
     uudetRivit[index] = rivi
@@ -148,7 +214,7 @@ function App() {
   }
 
   const syotteentyyli = {
-    fontSize: "0.75rem",
+    fontSize: "1rem",
     textAlign: "center",
   }
 
@@ -190,10 +256,16 @@ function App() {
 
         <TableContainer
           component={Paper}
-          sx={{ border: "1px solid #000", borderRadius: 0, overflowX: "auto" }}
+          sx={{
+            border: "1px solid #000",
+            borderRadius: 0,
+            overflowX: "auto",
+            maxHeight: 260,
+          }}
         >
           <Table
             size="small"
+            stickyHeader // Pitää otsikkorivin paikoillaan vierittäessä
             sx={{
               tableLayout: "fixed",
               minWidth: 550,
@@ -206,18 +278,22 @@ function App() {
             }}
           >
             <TableHead>
-              <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+              <TableRow
+                sx={{
+                  "& th": { bgcolor: "#f5f5f5" }, // Varmistaa taustan väri sticky-tilassa
+                }}
+              >
                 <TableCell
                   align="center"
                   sx={{ fontWeight: "bold", width: 40 }}
                 >
-                  Alkaa
+                  Alkoi
                 </TableCell>
                 <TableCell
                   align="center"
                   sx={{ fontWeight: "bold", width: 40 }}
                 >
-                  Päättyy
+                  Päättyi
                 </TableCell>
                 <TableCell
                   align="center"
@@ -245,7 +321,7 @@ function App() {
                 </TableCell>
                 <TableCell
                   align="center"
-                  sx={{ fontWeight: "bold", width: 90 }}
+                  sx={{ fontWeight: "bold", width: 70 }}
                 >
                   Hakukuvio
                 </TableCell>
@@ -261,7 +337,17 @@ function App() {
                 >
                   Pisteet
                 </TableCell>
-                <TableCell align="center" sx={{ width: 30 }}></TableCell>
+                <TableCell
+                  align="center"
+                  sx={{
+                    fontWeight: "bold",
+                    width: 30,
+                    fontSize: "1rem !important",
+                  }}
+                >
+                  {keskiarvo}
+                </TableCell>
+                {/* <TableCell align="center" sx={{ width: 30 }}></TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -363,12 +449,7 @@ function App() {
                           {...params}
                           variant="standard"
                           size="small"
-                          sx={{
-                            "& .MuiInputBase-input": {
-                              fontSize: "0.75rem !important",
-                              textAlign: "center !important",
-                            },
-                          }}
+                          sx={laskettuKenttaTyyli}
                         />
                       )}
                     />
