@@ -1,6 +1,18 @@
-html,
+/* html-elementin väri paistaa läpi Androidin navigaatiopalkin taustana */
+html {
+  background-color: #f5f5f5; /* Vaihda tähän haluamasi palkin taustaväri */
+}
+
 body {
-  background-color: #ffffff; /* Sama väri kuin sovelluksesi pohja */
+  background-color: #ffffff; /* Sovelluksen oma taustaväri */
   margin: 0;
   padding: 0;
+
+  /* Huomioidaan navigaatiopalkki vaakatilassa (oikealla ja vasemmalla) */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+
+  /* Pidetään huoli myös ylä- ja alareunasta (esim. kamerareiät) */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
