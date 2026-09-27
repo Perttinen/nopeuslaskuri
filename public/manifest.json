@@ -1,9 +1,0 @@
-{
-  "name": "Hakulenkit",
-  "short_name": "Hakulenkit",
-  "start_url": "/",
-  "display": "standalone",
-  "orientation": "landscape",
-  "theme_color": "#1976d2",
-  "background_color": "#ffffff"
-}

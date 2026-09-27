@@ -23,6 +23,7 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete"
 import AddIcon from "@mui/icons-material/Add"
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined"
+import InfoIcon from "@mui/icons-material/Info"
 import {
   LocalizationProvider,
   TimePicker,
@@ -66,20 +67,6 @@ function App() {
   const [infoAuki, setInfoAuki] = useState(false)
 
   useEffect(() => {
-    const lukitseVaakatilaan = async () => {
-      try {
-        if (window.screen.orientation && window.screen.orientation.lock) {
-          await window.screen.orientation.lock("landscape")
-        }
-      } catch (error) {
-        console.log("Näytön suunnan lukitus ei onnistunut:", error)
-      }
-    }
-
-    lukitseVaakatilaan()
-  }, [])
-
-  useEffect(() => {
     const tallennettavaData = rivit.map((r) => ({
       ...r,
       alkuAika: r.alkuAika ? r.alkuAika.toISOString() : null,
@@ -91,6 +78,16 @@ function App() {
   const paivitaArvo = (index, kentta, arvo) => {
     const uudetRivit = [...rivit]
     const rivi = { ...uudetRivit[index], [kentta]: arvo }
+
+    if (kentta === "pisteet") {
+      if (arvo === "") {
+      } else {
+        const num = Number(arvo)
+        if (isNaN(num) || num < 0 || num > 10) {
+          return
+        }
+      }
+    }
 
     if (kentta === "matkaKm" || kentta === "ulottuvuusKm") {
       let korjattu = arvo.replace(",", ".")
@@ -170,7 +167,11 @@ function App() {
           spacing={1}
           sx={{ alignItems: "center", justifyContent: "center", mb: 1 }}
         >
-          <Typography variant="h6" component="h1" sx={{ fontWeight: "bold" }}>
+          <Typography
+            variant="h6"
+            component="h1"
+            sx={{ fontWeight: "bold", color: "white" }}
+          >
             Hakulenkit
           </Typography>
           <IconButton
@@ -178,7 +179,12 @@ function App() {
             onClick={() => setInfoAuki(true)}
             size="small"
           >
-            <InfoOutlinedIcon fontSize="small" />
+            <InfoIcon
+              sx={{
+                color: "#ffffff",
+                ml: 6,
+              }}
+            />
           </IconButton>
         </Stack>
 
@@ -421,7 +427,7 @@ function App() {
             Lisää rivi
           </Button>
           <Button
-            variant="outlined"
+            variant="contained"
             color="error"
             size="small"
             onClick={tyhjennaTaulukko}
