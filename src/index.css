@@ -1,6 +1,6 @@
 /* html-elementin väri paistaa läpi Androidin navigaatiopalkin taustana */
 html {
-  background-color: #f5f5f5; /* Vaihda tähän haluamasi palkin taustaväri */
+  background-color: black; /* Vaihda tähän haluamasi palkin taustaväri */
 }
 
 body {
