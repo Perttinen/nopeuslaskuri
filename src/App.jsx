@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Container,
   Paper,
@@ -22,13 +22,8 @@ import {
 } from "@mui/material"
 import DeleteIcon from "@mui/icons-material/Delete"
 import AddIcon from "@mui/icons-material/Add"
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined"
 import InfoIcon from "@mui/icons-material/Info"
-import {
-  LocalizationProvider,
-  TimePicker,
-  TimeField,
-} from "@mui/x-date-pickers"
+import { LocalizationProvider, TimeField } from "@mui/x-date-pickers"
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs"
 import dayjs from "dayjs"
 
@@ -65,6 +60,28 @@ function App() {
   })
 
   const [infoAuki, setInfoAuki] = useState(false)
+
+  // Viite viimeisimmän rivin ensimmäiseen syötekenttään
+  const viimeisinInputRef = useRef(null)
+  // Viite Taulukon säiliöön automaattista vieritystä varten
+  const containerRef = useRef(null)
+
+  const edellinenPituusRef = useRef(rivit.length)
+
+  useEffect(() => {
+    // Tarkistetaan, onko kyseessä rivin LISÄYS (eikä poisto)
+    if (rivit.length > edellinenPituusRef.current) {
+      if (viimeisinInputRef.current) {
+        viimeisinInputRef.current.focus()
+      }
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight
+      }
+    }
+
+    // Päivitetään edellinen pituus seuraavaa renderöintiä varten
+    edellinenPituusRef.current = rivit.length
+  }, [rivit.length])
 
   useEffect(() => {
     const tallennettavaData = rivit.map((r) => ({
@@ -115,8 +132,6 @@ function App() {
     if (k < 0.5 && u < 0.3) {
       return n >= 1.5 ? 2 : 1
     }
-
-    // Jos arvot sijoittuvat rajatapauksiin (esim. km 0.7 ja ulottuvuus < 0.3), palautetaan oletus
     return 0
   }
 
@@ -124,19 +139,43 @@ function App() {
     const uudetRivit = [...rivit]
     const rivi = { ...uudetRivit[index], [kentta]: arvo }
 
-    // 1. Pisteiden manuaalisen syötön tarkistus (0–10)
-    if (kentta === "pisteet") {
-      if (arvo === "") {
-        // Sallitaan tyhjennys
-      } else {
-        const num = Number(arvo)
-        if (isNaN(num) || num < 0 || num > 10) {
-          return
+    // 1. Käsitellään nouto-checkboxin valinta
+    if (kentta === "nouto") {
+      // Jos nouto asetettiin päälle ja pisteet ovat yli 7, rajoitetaan pisteet 7:ään
+      if (arvo === true && rivi.pisteet !== "") {
+        const numPisteet = Number(rivi.pisteet)
+        if (!isNaN(numPisteet) && numPisteet > 7) {
+          rivi.pisteet = "7"
         }
       }
     }
 
-    // 2. Numerosyötteiden ja pilkkujen korjaus
+    // 2. Käsitellään pisteet-kentän syöttö
+    if (kentta === "pisteet") {
+      if (arvo === "") {
+        // Sallitaan tyhjä syöte
+      } else {
+        let num = Number(arvo)
+        if (isNaN(num) || num < 0 || num > 10) {
+          return // Hylätään virheelliset arvot
+        }
+        // Jos nouto on valittuna ja syötetty arvo on yli 7, leikataan arvoon 7
+        if (rivi.nouto && num > 7) {
+          rivi.pisteet = "7"
+        }
+      }
+    }
+
+    // if (kentta === "pisteet") {
+    //   if (arvo === "") {
+    //   } else {
+    //     const num = Number(arvo)
+    //     if (isNaN(num) || num < 0 || num > 10) {
+    //       return
+    //     }
+    //   }
+    // }
+
     if (kentta === "matkaKm" || kentta === "ulottuvuusKm") {
       let korjattu = arvo.replace(",", ".")
       if (korjattu !== "" && !/^\d*\.?\d{0,1}$/.test(korjattu)) {
@@ -145,7 +184,6 @@ function App() {
       rivi[kentta] = korjattu
     }
 
-    // 3. Ajan ja nopeuden laskenta
     const alku = kentta === "alkuAika" ? arvo : rivi.alkuAika
     const loppu = kentta === "loppuAika" ? arvo : rivi.loppuAika
     const matka = parseFloat(rivi.matkaKm)
@@ -177,17 +215,25 @@ function App() {
       rivi.nopeus = ""
     }
 
-    // 4. Automaattinen piste-ehdotus
-    // Lasketaan automaattisesti vain kun muutetaan matkaa, ulottuvuutta tai aikoja
-    if (["matkaKm", "ulottuvuusKm", "alkuAika", "loppuAika"].includes(kentta)) {
-      const ehdotetutPisteet = laskePisteEhdotus(
+    if (
+      ["matkaKm", "ulottuvuusKm", "alkuAika", "loppuAika", "nouto"].includes(
+        kentta,
+      )
+    ) {
+      let ehdotetutPisteet = laskePisteEhdotus(
         rivi.matkaKm,
         rivi.ulottuvuusKm,
         tarkkaKmh,
       )
 
-      // Päivitetään pisteet vain, jos laskenta tuotti tuloksen
       if (ehdotetutPisteet !== "") {
+        // Jos nouto on valittuna, rajoitetaan automaattinen piste-ehdotus myös max 7
+        if (rivi.nouto) {
+          const numEhdotus = Number(ehdotetutPisteet)
+          if (!isNaN(numEhdotus) && numEhdotus > 7) {
+            ehdotetutPisteet = "7"
+          }
+        }
         rivi.pisteet = ehdotetutPisteet
       }
     }
@@ -199,13 +245,13 @@ function App() {
   const lisaaRivi = () => {
     setRivit([...rivit, luoTyhjaRivi()])
   }
-
   const poistaRivi = (index) => {
-    if (rivit.length === 1) {
-      setRivit([luoTyhjaRivi()])
-    } else {
-      setRivit(rivit.filter((_, i) => i !== index))
-    }
+    setRivit((prevRivit) => {
+      if (prevRivit.length === 1) {
+        return [luoTyhjaRivi()]
+      }
+      return prevRivit.filter((_, i) => i !== index)
+    })
   }
 
   const tyhjennaTaulukko = () => {
@@ -265,7 +311,7 @@ function App() {
         >
           <Table
             size="small"
-            stickyHeader // Pitää otsikkorivin paikoillaan vierittäessä
+            stickyHeader
             sx={{
               tableLayout: "fixed",
               minWidth: 550,
@@ -280,7 +326,7 @@ function App() {
             <TableHead>
               <TableRow
                 sx={{
-                  "& th": { bgcolor: "#f5f5f5" }, // Varmistaa taustan väri sticky-tilassa
+                  "& th": { bgcolor: "#f5f5f5" },
                 }}
               >
                 <TableCell
@@ -347,148 +393,153 @@ function App() {
                 >
                   {keskiarvo}
                 </TableCell>
-                {/* <TableCell align="center" sx={{ width: 30 }}></TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
-              {rivit.map((rivi, index) => (
-                <TableRow key={rivi.id}>
-                  {/* Kapea Alkaa-sarake */}
-                  <TableCell align="center">
-                    <TimeField
-                      format="HH:mm"
-                      value={rivi.alkuAika}
-                      onChange={(uusi) => paivitaArvo(index, "alkuAika", uusi)}
-                      variant="standard"
-                      slotProps={{
-                        input: { disableUnderline: true },
-                      }}
-                    />
-                  </TableCell>
-                  {/* Kapea Päättyy-sarake */}
-                  <TableCell align="center">
-                    <TimeField
-                      format="HH:mm"
-                      value={rivi.loppuAika}
-                      onChange={(uusi) => paivitaArvo(index, "loppuAika", uusi)}
-                      variant="standard"
-                      slotProps={{
-                        input: { disableUnderline: true },
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <TextField
-                      variant="standard"
-                      value={rivi.matkaKm}
-                      onChange={(e) =>
-                        paivitaArvo(index, "matkaKm", e.target.value)
-                      }
-                      slotProps={{
-                        htmlInput: {
-                          inputMode: "decimal",
-                          style: syotteentyyli,
-                        },
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell align="center" sx={{ bgcolor: "#f9f9f9" }}>
-                    <TextField
-                      variant="standard"
-                      value={rivi.aikaMin}
-                      slotProps={{
-                        input: {
-                          readOnly: true,
-                          disableUnderline: true,
-                          style: syotteentyyli,
-                        },
-                      }}
-                      sx={laskettuKenttaTyyli}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <TextField
-                      variant="standard"
-                      value={rivi.ulottuvuusKm}
-                      onChange={(e) =>
-                        paivitaArvo(index, "ulottuvuusKm", e.target.value)
-                      }
-                      slotProps={{
-                        htmlInput: {
-                          inputMode: "decimal",
-                          style: syotteentyyli,
-                        },
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell align="center" sx={{ bgcolor: "#f9f9f9" }}>
-                    <TextField
-                      variant="standard"
-                      value={rivi.nopeus}
-                      slotProps={{
-                        input: {
-                          readOnly: true,
-                          disableUnderline: true,
-                          style: syotteentyyli,
-                        },
-                      }}
-                      sx={laskettuKenttaTyyli}
-                    />
-                  </TableCell>
-                  {/* Korjattu Hakukuvio-valikko autocompletella */}
-                  <TableCell align="center">
-                    <Autocomplete
-                      freeSolo
-                      options={["pisto", "lenkki"]}
-                      value={rivi.hakukuvio}
-                      onInputChange={(_, uusiArvo) =>
-                        paivitaArvo(index, "hakukuvio", uusiArvo || "")
-                      }
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          variant="standard"
-                          size="small"
-                          sx={laskettuKenttaTyyli}
-                        />
-                      )}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Checkbox
-                      checked={rivi.nouto}
-                      onChange={(e) =>
-                        paivitaArvo(index, "nouto", e.target.checked)
-                      }
-                      color="primary"
-                      size="small"
-                      sx={{ p: 0 }}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <TextField
-                      variant="standard"
-                      value={rivi.pisteet}
-                      onChange={(e) =>
-                        paivitaArvo(index, "pisteet", e.target.value)
-                      }
-                      slotProps={{
-                        htmlInput: { style: syotteentyyli },
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => poistaRivi(index)}
-                      sx={{ p: 0 }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {rivit.map((rivi, index) => {
+                const onViimeinenRivi = index === rivit.length - 1
+                return (
+                  <TableRow key={rivi.id}>
+                    <TableCell align="center">
+                      <TimeField
+                        format="HH:mm"
+                        value={rivi.alkuAika}
+                        onChange={(uusi) =>
+                          paivitaArvo(index, "alkuAika", uusi)
+                        }
+                        variant="standard"
+                        inputRef={onViimeinenRivi ? viimeisinInputRef : null}
+                        slotProps={{
+                          input: { disableUnderline: true },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <TimeField
+                        format="HH:mm"
+                        value={rivi.loppuAika}
+                        onChange={(uusi) =>
+                          paivitaArvo(index, "loppuAika", uusi)
+                        }
+                        variant="standard"
+                        slotProps={{
+                          input: { disableUnderline: true },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <TextField
+                        variant="standard"
+                        value={rivi.matkaKm}
+                        onChange={(e) =>
+                          paivitaArvo(index, "matkaKm", e.target.value)
+                        }
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: "decimal",
+                            style: syotteentyyli,
+                          },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center" sx={{ bgcolor: "#f9f9f9" }}>
+                      <TextField
+                        variant="standard"
+                        value={rivi.aikaMin}
+                        slotProps={{
+                          input: {
+                            readOnly: true,
+                            disableUnderline: true,
+                            style: syotteentyyli,
+                          },
+                        }}
+                        sx={laskettuKenttaTyyli}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <TextField
+                        variant="standard"
+                        value={rivi.ulottuvuusKm}
+                        onChange={(e) =>
+                          paivitaArvo(index, "ulottuvuusKm", e.target.value)
+                        }
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: "decimal",
+                            style: syotteentyyli,
+                          },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center" sx={{ bgcolor: "#f9f9f9" }}>
+                      <TextField
+                        variant="standard"
+                        value={rivi.nopeus}
+                        slotProps={{
+                          input: {
+                            readOnly: true,
+                            disableUnderline: true,
+                            style: syotteentyyli,
+                          },
+                        }}
+                        sx={laskettuKenttaTyyli}
+                      />
+                    </TableCell>
+                    {/* Korjattu Hakukuvio-valikko autocompletella */}
+                    <TableCell align="center">
+                      <Autocomplete
+                        freeSolo
+                        options={["pisto", "lenkki"]}
+                        value={rivi.hakukuvio}
+                        onInputChange={(_, uusiArvo) =>
+                          paivitaArvo(index, "hakukuvio", uusiArvo || "")
+                        }
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="standard"
+                            size="small"
+                            sx={laskettuKenttaTyyli}
+                          />
+                        )}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={rivi.nouto}
+                        onChange={(e) =>
+                          paivitaArvo(index, "nouto", e.target.checked)
+                        }
+                        color="primary"
+                        size="small"
+                        sx={{ p: 0 }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <TextField
+                        variant="standard"
+                        value={rivi.pisteet}
+                        onChange={(e) =>
+                          paivitaArvo(index, "pisteet", e.target.value)
+                        }
+                        slotProps={{
+                          htmlInput: { style: syotteentyyli },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => poistaRivi(index)}
+                        sx={{ p: 0 }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </TableContainer>
